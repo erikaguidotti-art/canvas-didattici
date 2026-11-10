@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AcoustiLab DAW - Laboratorio di Fisica del Suono</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome per Icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Font Inter Google -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        daw: {
+                            bg: '#0b0d14',
+                            panel: '#131722',
+                            card: '#1a1f2c',
+                            border: '#2a3144',
+                            hover: '#262d40',
+                            accentCyan: '#00f0ff',
+                            accentMagenta: '#ff0055',
+                            accentYellow: '#ffd700',
+                            accentGreen: '#00ff66',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Personalizzazione slider per aspetto DAW */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #2a3144;
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #00f0ff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        /* Neon Glows */
+        .glow-cyan { box-shadow: 0 0 15px rgba(0, 240, 255, 0.25); }
+        .glow-magenta { box-shadow: 0 0 15px rgba(255, 0, 85, 0.25); }
+        .glow-green { box-shadow: 0 0 15px rgba(0, 255, 102, 0.25); }
+        .text-glow-cyan { text-shadow: 0 0 8px rgba(0, 240, 255, 0.6); }
+        .text-glow-magenta { text-shadow: 0 0 8px rgba(255, 0, 85, 0.6); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0d14; }
+        ::-webkit-scrollbar-thumb { background: #2a3144; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00f0ff; }
+    </style>
+</head>
+
+<body class="bg-daw-bg text-gray-200 font-sans min-h-screen flex flex-col antialiased selection:bg-daw-accentCyan selection:text-black">
+
+    <!-- OVERLAY AUDIO UNLOCK (Se l'audio context è bloccato dal browser) -->
+    <div id="audio-unlock-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-daw-card border border-daw-accentCyan/40 rounded-2xl p-8 max-w-md text-center shadow-2xl glow-cyan">
+            <div class="w-16 h-16 bg-daw-accentCyan/10 text-daw-accentCyan rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                <i class="fa-solid fa-wave-square animate-pulse"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">AcoustiLab DAW</h2>
+            <p class="text-gray-300 text-sm mb-6">Laboratorio interattivo di Fisica del Suono e Psicoacustica. Clicca per attivare il motore sintetizzatore Web Audio API.</p>
+            <button id="btn-unlock-audio" class="w-full py-3 px-6 bg-daw-accentCyan text-black font-bold rounded-xl hover:bg-cyan-300 transition duration-200 shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 text-lg">
+                <i class="fa-solid fa-power-off"></i> Avvia Laboratorio Audio
+            </button>
+        </div>
+    </div>
+
+    <!-- HEADER PRINCIPALE DAW -->
+    <header class="bg-daw-panel border-b border-daw-border px-4 py-3 sticky top-0 z-40 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Logo & Titolo -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-daw-accentCyan to-blue-600 flex items-center justify-center text-black font-extrabold text-xl shadow-md">
+                    <i class="fa-solid fa-compact-disc"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg text-white tracking-wide flex items-center gap-2">
+                        ACOUSTILAB <span class="text-xs px-2 py-0.5 rounded bg-daw-accentCyan/20 text-daw-accentCyan border border-daw-accentCyan/30">EDITION 2.0</span>
+                    </h1>
+                    <p class="text-xs text-gray-400">Tecnologie Musicali & Acustica Didattica</p>
+                </div>
+            </div>
+
+            <!-- Global Master Controls -->
+            <div class="flex items-center gap-6 bg-daw-bg/80 border border-daw-border px-4 py-2 rounded-xl">
+                
+                <!-- Audio Engine Status -->
+                <div class="flex items-center gap-2 border-r border-daw-border pr-4">
+                    <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]"></div>
+                    <span id="status-text" class="text-xs font-mono font-medium text-gray-400">DSP OFF</span>
+                </div>
+
+                <!-- Global Mute Button -->
+                <button id="btn-global-mute" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition text-sm font-semibold">
+                    <i id="mute-icon" class="fa-solid fa-volume-xmark"></i>
+                    <span id="mute-label">MUTATO</span>
+                </button>
+
+                <!-- Master Volume Slider -->
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-volume-high text-xs text-gray-400"></i>
+                    <input type="range" id="slider-master-gain" min="0" max="1" step="0.01" value="0.7" class="w-24">
+                    <span id="label-master-gain" class="text-xs font-mono text-daw-accentCyan w-10">70%</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVIGAZIONE A SCHEDE (TABS) -->
+    <nav class="bg-daw-panel border-b border-daw-border px-4 sticky top-[65px] z-30">
+        <div class="max-w-7xl mx-auto flex overflow-x-auto no-scrollbar gap-2 py-2">
+            <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 border border-transparent whitespace-nowrap" data-tab="tab-frequenza">
+                <i class="fa-solid fa-wave-square text-daw-accentCyan"></i> 1. Frequenza & Periodo ($f, T$)
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 border border-transparent text-gray-400 hover:text-white whitespace-nowrap" data-tab="tab-ampiezza">
+                <i class="fa-solid fa-chart-simple text-daw-accentGreen"></i> 2. Ampiezza & Loudness ($dB$)
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 border border-transparent text-gray-400 hover:text-white whitespace-nowrap" data-tab="tab-fase">
+                <i class="fa-solid fa-sliders text-daw-accentMagenta"></i> 3. Fase & Interferenza ($\phi$)
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 border border-transparent text-gray-400 hover:text-white whitespace-nowrap" data-tab="tab-timbro">
+                <i class="fa-solid fa-bars-staggered text-daw-accentYellow"></i> 4. Timbro & Spettro Armonico
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 border border-transparent text-gray-400 hover:text-white whitespace-nowrap" data-tab="tab-quiz">
+                <i class="fa-solid fa-graduation-cap text-purple-400"></i> 5. Laboratorio & Quiz
+            </button>
+        </div>
+    </nav>
+
+    <!-- CONTENUTO PRINCIPALE MODULI -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+        <!-- ========================================== -->
+        <!-- TAB 1: FREQUENZA E PERIODO -->
+        <!-- ========================================== -->
+        <section id="tab-frequenza" class="tab-content block space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Colonna Controlli -->
+                <div class="bg-daw-card border border-daw-border rounded-2xl p-5 space-y-5 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-daw-accentCyan"></i> Paramentri dell'Onda
+                            </h2>
+                            <span class="text-xs px-2 py-1 bg-daw-accentCyan/10 text-daw-accentCyan rounded border border-daw-accentCyan/20">Sinusoidale</span>
+                        </div>
+
+                        <!-- Slider Frequenza -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <label for="t1-freq" class="text-sm font-medium text-gray-300">Frequenza ($f$):</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="t1-freq-num" min="20" max="2000" value="440" class="w-20 bg-daw-bg border border-daw-border rounded px-2 py-1 text-right font-mono text-daw-accentCyan text-sm focus:outline-none focus:border-daw-accentCyan">
+                                    <span class="text-xs font-mono text-gray-400">Hz</span>
+                                </div>
+                            </div>
+                            <input type="range" id="t1-freq" min="20" max="2000" step="1" value="440" class="w-full">
+                        </div>
+
+                        <!-- Presets Frequenza Nota -->
+                        <div class="mt-4">
+                            <span class="text-xs text-gray-400 font-medium block mb-2">Preset Note Standard (La):</span>
+                            <div class="grid grid-cols-4 gap-2">
+                                <button class="t1-preset-btn text-xs py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentCyan transition font-mono" data-freq="110">A2 (110Hz)</button>
+                                <button class="t1-preset-btn text-xs py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentCyan transition font-mono" data-freq="220">A3 (220Hz)</button>
+                                <button class="t1-preset-btn text-xs py-1.5 bg-daw-bg border border-daw-border bg-daw-accentCyan/20 text-daw-accentCyan rounded border-daw-accentCyan font-mono" data-freq="440">A4 (440Hz)</button>
+                                <button class="t1-preset-btn text-xs py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentCyan transition font-mono" data-freq="880">A5 (880Hz)</button>
+                            </div>
+                        </div>
+
+                        <!-- Zoom Temporale per Oscilloscopio -->
+                        <div class="space-y-2 mt-6 border-t border-daw-border pt-4">
+                            <div class="flex justify-between items-center">
+                                <label for="t1-zoom" class="text-sm font-medium text-gray-300">Finestra Temporale (Zoom):</label>
+                                <span id="t1-zoom-val" class="text-xs font-mono text-daw-accentCyan">10 ms</span>
+                            </div>
+                            <input type="range" id="t1-zoom" min="2" max="50" step="1" value="10" class="w-full">
+                        </div>
+                    </div>
+
+                    <!-- Box Matematica dinamica -->
+                    <div class="bg-daw-bg/90 border border-daw-accentCyan/30 rounded-xl p-4 space-y-2 glow-cyan">
+                        <div class="text-xs font-semibold text-daw-accentCyan uppercase tracking-wider">Relazioni Matematiche In Tempo Reale</div>
+                        <div class="font-mono text-sm text-gray-200 flex justify-between items-center">
+                            <span>Periodo ($T = 1/f$):</span>
+                            <span id="t1-calc-period" class="font-bold text-daw-accentCyan text-base">2.27 ms</span>
+                        </div>
+                        <div class="font-mono text-sm text-gray-200 flex justify-between items-center">
+                            <span>Lunghezza d'Onda ($\lambda = v/f$):</span>
+                            <span id="t1-calc-lambda" class="font-bold text-emerald-400 text-base">78.0 cm</span>
+                        </div>
+                        <p class="text-[11px] text-gray-400 italic pt-1 border-t border-daw-border/50">Calculato con velocità del suono in aria $v = 343 \text{ m/s}$ a $20^\circ\text{C}$.</p>
+                    </div>
+                </div>
+
+                <!-- Colonna Visualizzatore Oscilloscopio -->
+                <div class="lg:col-span-2 bg-daw-card border border-daw-border rounded-2xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-white text-base flex items-center gap-2">
+                                <i class="fa-solid fa-microscope text-daw-accentCyan"></i> Oscilloscopio (Dominio del Tempo)
+                            </h3>
+                            <div class="flex items-center gap-3 text-xs font-mono">
+                                <span class="flex items-center gap-1 text-daw-accentCyan"><span class="w-2 h-2 rounded-full bg-daw-accentCyan"></span> Segnale Sinusoidale</span>
+                                <span class="flex items-center gap-1 text-yellow-400"><span class="w-2 h-2 rounded-full bg-yellow-400"></span> Misura del Periodo ($T$)</span>
+                            </div>
+                        </div>
+
+                        <!-- Canvas Oscilloscopio T1 -->
+                        <div class="relative w-full h-72 bg-daw-bg border border-daw-border rounded-xl overflow-hidden shadow-inner">
+                            <canvas id="canvas-t1" class="w-full h-full block"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Scheda Didattica Integrata -->
+                    <div class="mt-4 p-4 rounded-xl bg-daw-bg border border-daw-border text-xs text-gray-300 leading-relaxed space-y-1">
+                        <p class="font-semibold text-white text-sm"><i class="fa-solid fa-lightbulb text-yellow-400 mr-1"></i> Concetto Acustico:</p>
+                        <p>La <strong>frequenza ($f$)</strong> indica il numero di cicli/oscillazioni complete compiute dall'onda in un secondo (misurata in Hertz, $\text{Hz}$). Il <strong>periodo ($T$)</strong> è la durata temporale di un singolo ciclo completo ($\text{secondi}$ o $\text{millisecondi}$). Tra $f$ e $T$ esiste una relazione di proporzionalità inversa: al crescere della frequenza, il periodo diminuisce.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================== -->
+        <!-- TAB 2: AMPIEZZA E LOUDNESS -->
+        <!-- ========================================== -->
+        <section id="tab-ampiezza" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Colonna Controlli -->
+                <div class="bg-daw-card border border-daw-border rounded-2xl p-5 space-y-6 flex flex-col justify-between">
+                    <div class="space-y-5">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-volume-high text-daw-accentGreen"></i> Guadagno e Pressione
+                        </h2>
+
+                        <!-- Slider Ampiezza Lineare -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <label for="t2-amp" class="text-sm font-medium text-gray-300">Ampiezza di Picco ($A$):</label>
+                                <span id="t2-amp-val" class="font-mono text-daw-accentGreen font-bold text-base">0.75</span>
+                            </div>
+                            <input type="range" id="t2-amp" min="0" max="1" step="0.01" value="0.75" class="w-full">
+                        </div>
+
+                        <!-- Valore Calcolato dBFS -->
+                        <div class="bg-daw-bg p-4 rounded-xl border border-daw-border space-y-3">
+                            <div class="flex justify-between items-center font-mono">
+                                <span class="text-xs text-gray-400">Livello in Decibel:</span>
+                                <span id="t2-db-val" class="text-xl font-extrabold text-daw-accentGreen">-2.50 dBFS</span>
+                            </div>
+                            
+                            <!-- Indicatore di Clipping -->
+                            <div id="t2-clip-badge" class="hidden text-xs py-1 px-3 rounded bg-red-500/20 text-red-400 border border-red-500/40 text-center font-bold tracking-wider animate-pulse">
+                                <i class="fa-solid fa-triangle-exclamation"></i> WARNING: CLIPPING / SATURAZIONE!
+                            </div>
+                        </div>
+
+                        <!-- Selezione Onda -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Forma d'Onda di Prova:</label>
+                            <select id="t2-wave-type" class="w-full bg-daw-bg border border-daw-border text-white text-sm rounded-lg p-2.5 focus:border-daw-accentGreen focus:outline-none font-mono">
+                                <option value="sine">Sinusoidale (Pure Tone)</option>
+                                <option value="triangle">Triangolare</option>
+                                <option value="sawtooth">Dente di Sega</option>
+                                <option value="square">Quadra</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Note Psicoacustiche Didattiche -->
+                    <div class="bg-daw-bg/80 border border-daw-accentGreen/30 rounded-xl p-4 text-xs text-gray-300 space-y-2">
+                        <div class="font-bold text-daw-accentGreen flex items-center gap-1">
+                            <i class="fa-solid fa-brain"></i> Percezione Uditiva (Loudness):
+                        </div>
+                        <p class="leading-relaxed">
+                            L'<strong>ampiezza fisica</strong> misura lo spostamento massimo delle molecole dell'aria (Pressione Acustica $Pa$). La <strong>Loudness (Volume percepito)</strong> è invece una grandezza psicoacustica descritta dalle <em>curve isosofoniche di Fletcher-Munson</em>: l'orecchio umano non percepisce tutte le frequenze con la stessa intensità a parità di ampiezza.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Colonna Visualizzatori (Oscilloscopio + VU Meter) -->
+                <div class="lg:col-span-2 bg-daw-card border border-daw-border rounded-2xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-white text-base flex items-center gap-2">
+                                <i class="fa-solid fa-chart-line text-daw-accentGreen"></i> Evidenziazione Ampiezza & Peak Level
+                            </h3>
+                            <span class="text-xs font-mono text-gray-400">Scala lineare [$0.0 \dots 1.0$]</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <!-- Canvas Oscilloscopio Ampiezza -->
+                            <div class="md:col-span-4 relative h-72 bg-daw-bg border border-daw-border rounded-xl overflow-hidden shadow-inner">
+                                <canvas id="canvas-t2" class="w-full h-full block"></canvas>
+                            </div>
+
+                            <!-- VU-Meter Dinamico in dBFS -->
+                            <div class="md:col-span-1 bg-daw-bg border border-daw-border rounded-xl p-3 flex flex-col items-center justify-between">
+                                <span class="text-[10px] font-mono text-gray-400 font-bold uppercase">VU Meter</span>
+                                
+                                <div class="w-8 flex-1 bg-black/60 rounded border border-daw-border p-1 relative flex flex-col-reverse justify-between overflow-hidden">
+                                    <!-- Seggetti VU Meter generati via JS -->
+                                    <div id="vu-segments-container" class="w-full h-full flex flex-col-reverse gap-[2px]"></div>
+                                </div>
+
+                                <span id="vu-numeric" class="text-xs font-mono font-bold text-daw-accentGreen mt-2">-2.5 dB</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Spiegazione Scala Decibel -->
+                    <div class="mt-4 p-4 rounded-xl bg-daw-bg border border-daw-border text-xs text-gray-300 leading-relaxed space-y-1">
+                        <p class="font-bold text-white text-sm"><i class="fa-solid fa-calculator text-daw-accentGreen mr-1"></i> Formulazione Decibel Full Scale ($\text{dBFS}$):</p>
+                        <p class="font-mono text-daw-accentGreen font-semibold">$$\text{dBFS} = 20 \cdot \log_{10}\left(\frac{A}{A_{\max}}\right)$$</p>
+                        <p>Il valore $0\text{ dBFS}$ rappresenta il limite massimo di ampiezza digitale senza distorsione. Ogni dimezzamento dell'ampiezza di picco ($A \to A/2$) corrisponde a un calo di circa $-6\text{ dBFS}$.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================== -->
+        <!-- TAB 3: FASE E INTERFERENZA -->
+        <!-- ========================================== -->
+        <section id="tab-fase" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Colonna Controlli Fase -->
+                <div class="bg-daw-card border border-daw-border rounded-2xl p-5 space-y-5 flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-code-compare text-daw-accentMagenta"></i> Generatori & Sfasamento
+                        </h2>
+
+                        <!-- Parametri Generatore A -->
+                        <div class="p-3 bg-daw-bg border border-daw-accentCyan/30 rounded-xl space-y-1">
+                            <span class="text-xs font-bold text-daw-accentCyan uppercase tracking-wider block">Onda A (Riferimento)</span>
+                            <div class="flex justify-between text-xs font-mono text-gray-300">
+                                <span>Frequenza: 440 Hz</span>
+                                <span>Fase $\phi_A = 0^\circ$</span>
+                            </div>
+                        </div>
+
+                        <!-- Parametri Generatore B -->
+                        <div class="p-3 bg-daw-bg border border-daw-accentMagenta/30 rounded-xl space-y-3">
+                            <span class="text-xs font-bold text-daw-accentMagenta uppercase tracking-wider block">Onda B (Sfasabile)</span>
+                            <div class="flex justify-between text-xs font-mono text-gray-300">
+                                <span>Frequenza: 440 Hz</span>
+                                <span id="t3-phase-deg-val" class="text-daw-accentMagenta font-bold text-sm">180°</span>
+                            </div>
+                            <input type="range" id="t3-phase" min="0" max="360" step="1" value="180" class="w-full">
+                            <div class="flex justify-between text-[11px] font-mono text-gray-400">
+                                <span>0 rad ($0^\circ$)</span>
+                                <span>$\pi$ rad ($180^\circ$)</span>
+                                <span>$2\pi$ rad ($360^\circ$)</span>
+                            </div>
+                        </div>
+
+                        <!-- Presets Fase rapidi -->
+                        <div class="space-y-2">
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Preset Angoli di Fase:</span>
+                            <div class="grid grid-cols-3 gap-2 font-mono text-xs">
+                                <button class="t3-preset-phase py-2 bg-daw-bg border border-daw-border rounded hover:border-daw-accentMagenta transition" data-phase="0">0° (In Fase)</button>
+                                <button class="t3-preset-phase py-2 bg-daw-bg border border-daw-border rounded hover:border-daw-accentMagenta transition" data-phase="90">90° ($\pi/2$)</button>
+                                <button class="t3-preset-phase py-2 bg-daw-bg border border-daw-border bg-daw-accentMagenta/20 text-daw-accentMagenta border-daw-accentMagenta rounded" data-phase="180">180° ($\pi$ Opposizione)</button>
+                            </div>
+                        </div>
+
+                        <!-- Selezione Audio Output -->
+                        <div class="space-y-2 border-t border-daw-border pt-3">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Ascolta in Cassa:</label>
+                            <div class="grid grid-cols-3 gap-2 font-mono text-xs">
+                                <button id="btn-listen-a" class="t3-audio-mode py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentCyan text-gray-300">Onda A</button>
+                                <button id="btn-listen-b" class="t3-audio-mode py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentMagenta text-gray-300">Onda B</button>
+                                <button id="btn-listen-sum" class="t3-audio-mode active py-1.5 bg-daw-bg border border-daw-accentYellow/50 text-daw-accentYellow rounded font-bold">Somma A+B</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stato Dinamico Interferenza -->
+                    <div id="t3-status-box" class="p-4 rounded-xl border bg-daw-bg text-center space-y-1 transition duration-300">
+                        <span class="text-[10px] font-mono text-gray-400 uppercase block">Regime di Sovrapposizione:</span>
+                        <div id="t3-status-text" class="text-base font-extrabold text-daw-accentMagenta">CONTROFASE / CANCELLAZIONE TOTALE</div>
+                    </div>
+                </div>
+
+                <!-- Colonna Grafici Sovrapposizione e Risultante -->
+                <div class="lg:col-span-2 space-y-6">
+                    
+                    <!-- Grafico 1: Onde A e B Sovrapposte -->
+                    <div class="bg-daw-card border border-daw-border rounded-2xl p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-layer-group text-daw-accentCyan"></i> Onde Componenti Sovrapposte
+                            </h3>
+                            <div class="flex gap-4 text-xs font-mono">
+                                <span class="text-daw-accentCyan"><i class="fa-solid fa-minus"></i> Onda A ($0^\circ$)</span>
+                                <span class="text-daw-accentMagenta"><i class="fa-solid fa-minus"></i> Onda B ($\phi$)</span>
+                            </div>
+                        </div>
+                        <div class="relative h-44 bg-daw-bg border border-daw-border rounded-xl overflow-hidden shadow-inner">
+                            <canvas id="canvas-t3-components" class="w-full h-full block"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Grafico 2: Somma Algebrica Risultante -->
+                    <div class="bg-daw-card border border-daw-border rounded-2xl p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-sigma text-daw-accentYellow"></i> Onda Risultante Somma ($A + B$)
+                            </h3>
+                            <span id="t3-sum-amplitude-label" class="text-xs font-mono text-daw-accentYellow font-bold">Ampiezza Risultante = 0.00</span>
+                        </div>
+                        <div class="relative h-44 bg-daw-bg border border-daw-border rounded-xl overflow-hidden shadow-inner">
+                            <canvas id="canvas-t3-sum" class="w-full h-full block"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================== -->
+        <!-- TAB 4: TIMBRO E SPETTRO ARMONICO -->
+        <!-- ========================================== -->
+        <section id="tab-timbro" class="tab-content hidden space-y-6">
+            
+            <!-- Controlli Sintetizzatore Additivo -->
+            <div class="bg-daw-card border border-daw-border rounded-2xl p-5 space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-daw-border pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-bars-staggered text-daw-accentYellow"></i> Sintetizzatore Additivo a 8 Armoniche
+                        </h2>
+                        <p class="text-xs text-gray-400">Modella il timbro sommando le ampiezze delle prime 8 armoniche ($f_1, f_2, \dots, f_8$).</p>
+                    </div>
+
+                    <!-- Controlli Frequenza Fondamentale & Presets -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-2 bg-daw-bg border border-daw-border px-3 py-1.5 rounded-lg">
+                            <label for="t4-f1" class="text-xs text-gray-300 font-semibold">Fondamentale ($f_1$):</label>
+                            <input type="number" id="t4-f1-num" min="50" max="600" value="220" class="w-16 bg-daw-card border border-daw-border rounded px-1.5 py-0.5 text-right font-mono text-daw-accentYellow text-xs">
+                            <span class="text-xs font-mono text-gray-400">Hz</span>
+                        </div>
+
+                        <!-- Preset Timbri Geometrici Classici -->
+                        <div class="flex items-center gap-1">
+                            <button class="t4-preset-wave text-xs px-2.5 py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentYellow transition" data-preset="sine">Sinusoidale</button>
+                            <button class="t4-preset-wave text-xs px-2.5 py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentYellow transition" data-preset="square">Quadra</button>
+                            <button class="t4-preset-wave text-xs px-2.5 py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentYellow transition" data-preset="saw">Dente Sega</button>
+                            <button class="t4-preset-wave text-xs px-2.5 py-1.5 bg-daw-bg border border-daw-border rounded hover:border-daw-accentYellow transition" data-preset="triangle">Triangolare</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sliders per le 8 Armoniche -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+                    <!-- Generati o gestiti via HTML statico responsive -->
+                    <template id="harmonic-slider-template"></template>
+                    
+                    <!-- Loop statico 8 armoniche -->
+                    <script>
+                        // Iniettiamo i controlli delle 8 armoniche
+                        document.addEventListener("DOMContentLoaded", () => {
+                            const container = document.getElementById('harmonics-container');
+                            if(!container) return;
+                            for(let i = 1; i <= 8; i++) {
+                                container.innerHTML += `
+                                    <div class="bg-daw-bg border border-daw-border rounded-xl p-3 flex flex-col items-center justify-between space-y-3">
+                                        <span class="text-xs font-mono font-bold text-daw-accentYellow">H${i} (${i}f)</span>
+                                        <div class="h-32 flex items-center justify-center">
+                                            <input type="range" id="t4-h${i}" min="0" max="1" step="0.01" value="${i===1?1:0}" class="h-28 -rotate-90 w-28 cursor-pointer">
+                                        </div>
+                                        <span id="t4-h${i}-val" class="text-xs font-mono text-gray-300 font-semibold">${i===1?'1.00':'0.00'}</span>
+                                    </div>
+                                `;
+                            }
+                        });
+                    </script>
+                    <div id="harmonics-container" class="contents"></div>
+                </div>
+            </div>
+
+            <!-- Doppio Display Affiancato (Tempo vs Frequenza FFT) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Display 1: Dominio del Tempo (Oscilloscopio Composito) -->
+                <div class="bg-daw-card border border-daw-border rounded-2xl p-5 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-white text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-wave-square text-daw-accentCyan"></i> Dominio del Tempo (Forma d'Onda)
+                        </h3>
+                        <span class="text-xs font-mono text-gray-400">Somma $y(t) = \sum A_n \sin(2\pi n f_1 t)$</span>
+                    </div>
+                    <div class="relative h-60 bg-daw-bg border border-daw-border rounded-xl overflow-hidden shadow-inner">
+                        <canvas id="canvas-t4-time" class="w-full h-full block"></canvas>
+                    </div>
+                </div>
+
+                <!-- Display 2: Dominio della Frequenza (Analizzatore di Spettro FFT) -->
+                <div class="bg-daw-card border border-daw-border rounded-2xl p-5 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-white text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-daw-accentYellow"></i> Dominio della Frequenza (Spettro FFT)
+                        </h3>
+                        <span class="text-xs font-mono text-gray-400">Spettro delle Armoniche</span>
+                    </div>
+                    <div class="relative h-60 bg-daw-bg border border-daw-border rounded-xl overflow-hidden shadow-inner">
+                        <canvas id="canvas-t4-freq" class="w-full h-full block"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================== -->
+        <!-- TAB 5: LABORATORIO & QUIZ (CHALLENGE MODE) -->
+        <!-- ========================================== -->
+        <section id="tab-quiz" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Colonna Punteggio e Selezione Modalità -->
+                <div class="bg-daw-card border border-daw-border rounded-2xl p-5 space-y-6 flex flex-col justify-between">
+                    <div class="space-y-5">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-trophy text-purple-400"></i> Challenge Mode
+                            </h2>
+                            <span class="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">Verifica Didattica</span>
+                        </div>
+
+                        <!-- Score Card -->
+                        <div class="bg-daw-bg border border-purple-500/30 rounded-xl p-4 text-center space-y-1 glow-cyan">
+                            <span class="text-xs text-gray-400 uppercase font-mono tracking-wider">Punteggio Totale</span>
+                            <div id="quiz-score" class="text-4xl font-extrabold text-purple-400 font-mono">0</div>
+                            <p id="quiz-streak" class="text-xs text-gray-400 font-mono">Serie Risposte Corrette: 0 🔥</p>
+                        </div>
+
+                        <!-- Selettore Modalità Sfida -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Scegli la Sfida:</label>
+                            <button id="btn-mode-freq" class="quiz-mode-select w-full py-3 px-4 bg-daw-bg border border-purple-500/40 text-purple-300 font-semibold rounded-xl hover:bg-purple-500/10 transition text-left flex items-center justify-between text-sm">
+                                <span><i class="fa-solid fa-ear-listen mr-2"></i> 1. Indovina la Frequenza ($f$)</span>
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </button>
+                            <button id="btn-mode-wave" class="quiz-mode-select w-full py-3 px-4 bg-daw-bg border border-daw-border text-gray-400 font-semibold rounded-xl hover:bg-daw-hover transition text-left flex items-center justify-between text-sm">
+                                <span><i class="fa-solid fa-wave-square mr-2"></i> 2. Riconosci il Timbro</span>
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button id="btn-reset-quiz" class="w-full py-2 bg-daw-bg border border-daw-border text-xs text-gray-400 hover:text-white rounded-lg transition font-mono">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> Azzera Punteggio
+                    </button>
+                </div>
+
+                <!-- Colonna Area Interattiva del Quiz -->
+                <div class="lg:col-span-2 bg-daw-card border border-daw-border rounded-2xl p-6 flex flex-col justify-between min-h-[420px]">
+                    
+                    <!-- MODALITÀ 1: INDOVINA LA FREQUENZA -->
+                    <div id="quiz-panel-freq" class="space-y-6">
+                        <div class="flex justify-between items-center border-b border-daw-border pb-3">
+                            <h3 class="font-bold text-white text-base">Sfida: Stima la Frequenza del Tono Misterioso</h3>
+                            <span class="text-xs text-purple-300 font-mono bg-purple-500/10 px-2.5 py-1 rounded border border-purple-500/20">Range: 100 Hz - 1000 Hz</span>
+                        </div>
+
+                        <!-- Riproduzione Tono Campione -->
+                        <div class="flex flex-col sm:flex-row items-center gap-4 bg-daw-bg p-4 rounded-xl border border-daw-border">
+                            <button id="btn-quiz-play-freq" class="w-full sm:w-auto px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-play"></i> Riproduci Tono Misterioso
+                            </button>
+                            <span class="text-xs text-gray-400 text-center sm:text-left">Ascolta attentamente il suono. Puoi riprodurlo quante volte desideri prima di confermare.</span>
+                        </div>
+
+                        <!-- Input Stima Frequenza -->
+                        <div class="space-y-3 bg-daw-bg/50 p-4 rounded-xl border border-daw-border">
+                            <div class="flex justify-between items-center">
+                                <label for="quiz-freq-guess" class="text-sm font-semibold text-gray-200">La tua stima della frequenza:</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="quiz-freq-guess-num" min="100" max="1000" value="440" class="w-24 bg-daw-bg border border-daw-border rounded px-2 py-1 text-right font-mono text-purple-300 font-bold text-base focus:outline-none focus:border-purple-400">
+                                    <span class="text-sm font-mono text-gray-400">Hz</span>
+                                </div>
+                            </div>
+                            <input type="range" id="quiz-freq-guess" min="100" max="1000" step="1" value="440" class="w-full">
+                        </div>
+
+                        <!-- Bottone Conferma e Feedback -->
+                        <div class="flex items-center gap-4">
+                            <button id="btn-quiz-submit-freq" class="flex-1 py-3 bg-daw-accentCyan text-black font-bold rounded-xl hover:bg-cyan-300 transition text-center">
+                                Conferma Stima
+                            </button>
+                            <button id="btn-quiz-next-freq" class="px-5 py-3 bg-daw-bg border border-daw-border text-gray-300 font-semibold rounded-xl hover:bg-daw-hover transition hidden">
+                                Prossimo Tono <i class="fa-solid fa-arrow-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- MODALITÀ 2: RICONOSCI LA FORMA D'ONDA (TIMBRO) -->
+                    <div id="quiz-panel-wave" class="space-y-6 hidden">
+                        <div class="flex justify-between items-center border-b border-daw-border pb-3">
+                            <h3 class="font-bold text-white text-base">Sfida: Identifica la Forma d'Onda dal Suono</h3>
+                            <span class="text-xs text-purple-300 font-mono bg-purple-500/10 px-2.5 py-1 rounded border border-purple-500/20">Timbro Didattico</span>
+                        </div>
+
+                        <!-- Riproduzione Tono Campione -->
+                        <div class="flex flex-col sm:flex-row items-center gap-4 bg-daw-bg p-4 rounded-xl border border-daw-border">
+                            <button id="btn-quiz-play-wave" class="w-full sm:w-auto px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-play"></i> Riproduci Suono Incognito
+                            </button>
+                            <span class="text-xs text-gray-400 text-center sm:text-left">Ascolta il timbro (o controlla lo spettro se necessario) e seleziona la forma d'onda corrispondente.</span>
+                        </div>
+
+                        <!-- Scelte Opzioni Forma d'Onda -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <button class="quiz-wave-option p-4 bg-daw-bg border border-daw-border rounded-xl text-center hover:border-purple-400 transition font-mono font-bold text-gray-200" data-wave="sine">
+                                <i class="fa-solid fa-wave-square block text-2xl text-daw-accentCyan mb-2"></i> Sinusoidale
+                            </button>
+                            <button class="quiz-wave-option p-4 bg-daw-bg border border-daw-border rounded-xl text-center hover:border-purple-400 transition font-mono font-bold text-gray-200" data-wave="square">
+                                <i class="fa-solid fa-square text-2xl text-daw-accentGreen mb-2"></i> Quadra
+                            </button>
+                            <button class="quiz-wave-option p-4 bg-daw-bg border border-daw-border rounded-xl text-center hover:border-purple-400 transition font-mono font-bold text-gray-200" data-wave="sawtooth">
+                                <i class="fa-solid fa-chart-line text-2xl text-daw-accentMagenta mb-2"></i> Dente di Sega
+                            </button>
+                            <button class="quiz-wave-option p-4 bg-daw-bg border border-daw-border rounded-xl text-center hover:border-purple-400 transition font-mono font-bold text-gray-200" data-wave="triangle">
+                                <i class="fa-solid fa-play -rotate-90 inline-block text-2xl text-daw-accentYellow mb-2"></i> Triangolare
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Banner Risultato e Feedback -->
+                    <div id="quiz-feedback" class="hidden p-4 rounded-xl border text-sm font-semibold flex items-center gap-3 mt-4">
+                        <i id="quiz-feedback-icon" class="text-2xl"></i>
+                        <span id="quiz-feedback-text"></span>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER DIDATTICO -->
+    <footer class="bg-daw-panel border-t border-daw-border px-4 py-4 mt-auto text-xs text-gray-400 text-center">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div>
+                <strong>AcoustiLab DAW</strong> &copy; 2026 - Piattaforma Didattica per le Tecnologie Musicali e Fisica del Suono.
+            </div>
+            <div class="font-mono text-gray-500">
+                Web Audio API | Dynamic HTML5 Canvas (60 FPS)
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- ================================================================= -->
+    <!-- LOGICA JAVASCRIPT VANILLA COMPLETA -->
+    <!-- ================================================================= -->
+    <script>
+        /**
+         * ACOUSTILAB CORE ENGINE
+         * Gestione Web Audio API e Visualizzazioni Canvas a 60 FPS
+         */
+
+        // Statoglobale dell'applicazione
+        const state = {
+            activeTab: 'tab-frequenza',
+            audioUnlocked: false,
+            globalMute: true,
+            masterGain: 0.7,
+            
+            // TAB 1
+            t1: { freq: 440, zoomMs: 10 },
+            
+            // TAB 2
+            t2: { gain: 0.75, waveType: 'sine' },
+            
+            // TAB 3
+            t3: { phaseDeg: 180, audioMode: 'sum' }, // 'a', 'b', 'sum'
+            
+            // TAB 4
+            t4: { f1: 220, harmonics: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] },
+
+            // TAB 5 (Quiz)
+            t5: {
+                mode: 'freq',
+                score: 0,
+                streak: 0,
+                targetFreq: 440,
+                targetWave: 'sine',
+                answered: false
+            }
+        };
+
+        // Web Audio API Global Nodes
+        let audioCtx = null;
+        let masterGainNode = null;
+        let mainAnalyser = null;
+
+        // Oscillators & Nodes dedicati ai tab
+        let t1Osc = null, t1Gain = null;
+        let t2Osc = null, t2Gain = null;
+        let t3OscA = null, t3OscB = null, t3GainA = null, t3GainB = null, t3DelayB = null;
+        let t4Oscs = [], t4Gains = [];
+        let quizOsc = null, quizGain = null;
+
+        // Inizializzazione del Web Audio Context
+        function initAudioEngine() {
+            if (audioCtx) return;
+
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContextClass();
+
+            // Master Gain Node (Limitatore di sicurezza)
+            masterGainNode = audioCtx.createGain();
+            masterGainNode.gain.value = state.globalMute ? 0 : state.masterGain;
+
+            // Analyser principale
+            mainAnalyser = audioCtx.createAnalyser();
+            mainAnalyser.fftSize = 2048;
+
+            masterGainNode.connect(mainAnalyser);
+            mainAnalyser.connect(audioCtx.destination);
+
+            state.audioUnlocked = true;
+
+            // Aggiorna indicatori UI
+            document.getElementById('audio-unlock-overlay').classList.add('hidden');
+            const statusInd = document.getElementById('status-indicator');
+            const statusTxt = document.getElementById('status-text');
+            statusInd.className = "w-3 h-3 rounded-full bg-daw-accentGreen shadow-[0_0_8px_#00ff66]";
+            statusTxt.textContent = "DSP ON (" + audioCtx.sampleRate + "Hz)";
+
+            // Avvia la sintesi del tab attivo
+            updateAudioForActiveTab();
+        }
+
+        // Gestore Mute Globale
+        function toggleGlobalMute() {
+            state.globalMute = !state.globalMute;
+            const btn = document.getElementById('btn-global-mute');
+            const icon = document.getElementById('mute-icon');
+            const label = document.getElementById('mute-label');
+
+            if (state.globalMute) {
+                btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition text-sm font-semibold";
+                icon.className = "fa-solid fa-volume-xmark";
+                label.textContent = "MUTATO";
+                if (masterGainNode) masterGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            } else {
+                btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg bg-daw-accentGreen/20 text-daw-accentGreen border border-daw-accentGreen/30 hover:bg-daw-accentGreen/30 transition text-sm font-semibold";
+                icon.className = "fa-solid fa-volume-high";
+                label.textContent = "ATTIVO";
+                if (masterGainNode) masterGainNode.gain.setValueAtTime(state.masterGain, audioCtx.currentTime);
+            }
+        }
+
+        // Disattiva ed elimina tutti i nodi audio attivi dei tab
+        function stopAllTabAudio() {
+            if (!audioCtx) return;
+
+            // Stop T1
+            if (t1Osc) { try { t1Osc.stop(); t1Osc.disconnect(); } catch(e){} t1Osc = null; }
+            if (t1Gain) { t1Gain.disconnect(); t1Gain = null; }
+
+            // Stop T2
+            if (t2Osc) { try { t2Osc.stop(); t2Osc.disconnect(); } catch(e){} t2Osc = null; }
+            if (t2Gain) { t2Gain.disconnect(); t2Gain = null; }
+
+            // Stop T3
+            if (t3OscA) { try { t3OscA.stop(); t3OscA.disconnect(); } catch(e){} t3OscA = null; }
+            if (t3OscB) { try { t3OscB.stop(); t3OscB.disconnect(); } catch(e){} t3OscB = null; }
+            if (t3GainA) { t3GainA.disconnect(); t3GainA = null; }
+            if (t3GainB) { t3GainB.disconnect(); t3GainB = null; }
+            if (t3DelayB) { t3DelayB.disconnect(); t3DelayB = null; }
+
+            // Stop T4
+            t4Oscs.forEach(osc => { try { osc.stop(); osc.disconnect(); } catch(e){} });
+            t4Gains.forEach(gain => gain.disconnect());
+            t4Oscs = []; t4Gains = [];
+
+            // Stop Quiz
+            if (quizOsc) { try { quizOsc.stop(); quizOsc.disconnect(); } catch(e){} quizOsc = null; }
+            if (quizGain) { quizGain.disconnect(); quizGain = null; }
+        }
+
+        // Aggiorna il motore audio in base al tab selezionato
+        function updateAudioForActiveTab() {
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+
+            stopAllTabAudio();
+
+            switch (state.activeTab) {
+                case 'tab-frequenza':
+                    setupTab1Audio();
+                    break;
+                case 'tab-ampiezza':
+                    setupTab2Audio();
+                    break;
+                case 'tab-fase':
+                    setupTab3Audio();
+                    break;
+                case 'tab-timbro':
+                    setupTab4Audio();
+                    break;
+                case 'tab-quiz':
+                    // In modalità quiz l'audio viene generato solo alla pressione del pulsante "Riproduci"
+                    break;
+            }
+        }
+
+        /* ================================================================= */
+        /* SETUP AUDIO DEI SINGOLI MODULI */
+        /* ================================================================= */
+
+        // Tab 1: Frequenza e Periodo
+        function setupTab1Audio() {
+            t1Osc = audioCtx.createOscillator();
+            t1Gain = audioCtx.createGain();
+
+            t1Osc.type = 'sine';
+            t1Osc.frequency.setValueAtTime(state.t1.freq, audioCtx.currentTime);
+
+            t1Gain.gain.setValueAtTime(0.5, audioCtx.currentTime); // Guadagno standard 0.5
+
+            t1Osc.connect(t1Gain);
+            t1Gain.connect(masterGainNode);
+
+            t1Osc.start();
+        }
+
+        // Tab 2: Ampiezza e Loudness
+        function setupTab2Audio() {
+            t2Osc = audioCtx.createOscillator();
+            t2Gain = audioCtx.createGain();
+
+            t2Osc.type = state.t2.waveType;
+            t2Osc.frequency.setValueAtTime(440, audioCtx.currentTime); // 440 Hz fisso per prova ampiezza
+
+            t2Gain.gain.setValueAtTime(state.t2.gain, audioCtx.currentTime);
+
+            t2Osc.connect(t2Gain);
+            t2Gain.connect(masterGainNode);
+
+            t2Osc.start();
+        }
+
+        // Tab 3: Fase e Interferenza
+        function setupTab3Audio() {
+            t3OscA = audioCtx.createOscillator();
+            t3OscB = audioCtx.createOscillator();
+            t3GainA = audioCtx.createGain();
+            t3GainB = audioCtx.createGain();
+            t3DelayB = audioCtx.createDelay(1.0); // Riserva fino a 1s di delay per la fase
+
+            const freq = 440;
+            t3OscA.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            t3OscB.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            // Calcolo tempo di sfasamento: dt = (phaseDeg / 360) * (1 / freq)
+            const delayTime = (state.t3.phaseDeg / 360.0) * (1.0 / freq);
+            t3DelayB.delayTime.setValueAtTime(delayTime, audioCtx.currentTime);
+
+            // Gestione routing in base alle preferenze d'ascolto
+            const gainAVal = (state.t3.audioMode === 'a' || state.t3.audioMode === 'sum') ? 0.4 : 0.0;
+            const gainBVal = (state.t3.audioMode === 'b' || state.t3.audioMode === 'sum') ? 0.4 : 0.0;
+
+            t3GainA.gain.setValueAtTime(gainAVal, audioCtx.currentTime);
+            t3GainB.gain.setValueAtTime(gainBVal, audioCtx.currentTime);
+
+            t3OscA.connect(t3GainA);
+            t3OscB.connect(t3DelayB);
+            t3DelayB.connect(t3GainB);
+
+            t3GainA.connect(masterGainNode);
+            t3GainB.connect(masterGainNode);
+
+            t3OscA.start();
+            t3OscB.start();
+        }
+
+        // Tab 4: Sintetizzatore Additivo
+        function setupTab4Audio() {
+            const f1 = state.t4.f1;
+            
+            for (let i = 0; i < 8; i++) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                const harmonicFreq = f1 * (i + 1);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(harmonicFreq, audioCtx.currentTime);
+
+                // Normalizziamo per evitare distorsioni (dividiamo per 4)
+                const amp = (state.t4.harmonics[i] || 0) * 0.25;
+                gain.gain.setValueAtTime(amp, audioCtx.currentTime);
+
+                osc.connect(gain);
+                gain.connect(masterGainNode);
+
+                osc.start();
+
+                t4Oscs.push(osc);
+                t4Gains.push(gain);
+            }
+        }
+
+        // Riproduzione Suono Quiz per 2 secondi
+        function playQuizSound(freq, waveType) {
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            if (quizOsc) { try { quizOsc.stop(); quizOsc.disconnect(); } catch(e){} }
+            if (quizGain) { quizGain.disconnect(); }
+
+            quizOsc = audioCtx.createOscillator();
+            quizGain = audioCtx.createGain();
+
+            quizOsc.type = waveType;
+            quizOsc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            quizGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            // Inviluppo Dolce (Fade Out a 1.8s)
+            quizGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 2.0);
+
+            quizOsc.connect(quizGain);
+            quizGain.connect(masterGainNode);
+
+            quizOsc.start();
+            quizOsc.stop(audioCtx.currentTime + 2.0);
+        }
+
+
+        /* ================================================================= */
+        /* INTERFACCIA UTENTE & GESTIONE EVENTI (EVENT LISTENERS) */
+        /* ================================================================= */
+
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // Unlock Audio Button Overlay
+            document.getElementById('btn-unlock-audio').addEventListener('click', () => {
+                initAudioEngine();
+            });
+
+            // Mute Button Header
+            document.getElementById('btn-global-mute').addEventListener('click', () => {
+                if (!audioCtx) initAudioEngine();
+                toggleGlobalMute();
+            });
+
+            // Master Volume Slider
+            document.getElementById('slider-master-gain').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                state.masterGain = val;
+                document.getElementById('label-master-gain').textContent = Math.round(val * 100) + "%";
+                if (masterGainNode && !state.globalMute) {
+                    masterGainNode.gain.setValueAtTime(val, audioCtx.currentTime);
+                }
+            });
+
+            // Navigazione Tab
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    tabButtons.forEach(b => {
+                        b.classList.remove('active', 'border-daw-accentCyan', 'text-white', 'bg-daw-card');
+                        b.classList.add('text-gray-400', 'border-transparent');
+                    });
+                    btn.classList.add('active', 'border-daw-accentCyan', 'text-white', 'bg-daw-card');
+                    btn.classList.remove('text-gray-400', 'border-transparent');
+
+                    const targetTabId = btn.getAttribute('data-tab');
+                    state.activeTab = targetTabId;
+
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                    document.getElementById(targetTabId).classList.remove('hidden');
+
+                    // Aggiorna Audio per il nuovo tab
+                    updateAudioForActiveTab();
+                });
+            });
+
+            /* ------------------------------------------------------------- */
+            /* EVENTI TAB 1: FREQUENZA E PERIODO */
+            /* ------------------------------------------------------------- */
+            const t1Slider = document.getElementById('t1-freq');
+            const t1Num = document.getElementById('t1-freq-num');
+            const t1Zoom = document.getElementById('t1-zoom');
+
+            function updateT1Freq(val) {
+                val = Math.max(20, Math.min(2000, val));
+                state.t1.freq = val;
+                t1Slider.value = val;
+                t1Num.value = val;
+
+                // Calcoli matematici dinamici
+                const periodMs = (1000 / val);
+                const lambdaCm = (343 / val) * 100;
+
+                document.getElementById('t1-calc-period').textContent = periodMs.toFixed(2) + " ms";
+                document.getElementById('t1-calc-lambda').textContent = lambdaCm < 100 ? lambdaCm.toFixed(1) + " cm" : (lambdaCm/100).toFixed(2) + " m";
+
+                if (t1Osc) t1Osc.frequency.setValueAtTime(val, audioCtx.currentTime);
+            }
+
+            t1Slider.addEventListener('input', (e) => updateT1Freq(parseFloat(e.target.value)));
+            t1Num.addEventListener('change', (e) => updateT1Freq(parseFloat(e.target.value)));
+
+            document.querySelectorAll('.t1-preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.t1-preset-btn').forEach(b => b.classList.remove('bg-daw-accentCyan/20', 'text-daw-accentCyan', 'border-daw-accentCyan'));
+                    btn.classList.add('bg-daw-accentCyan/20', 'text-daw-accentCyan', 'border-daw-accentCyan');
+                    updateT1Freq(parseFloat(btn.getAttribute('data-freq')));
+                });
+            });
+
+            t1Zoom.addEventListener('input', (e) => {
+                state.t1.zoomMs = parseFloat(e.target.value);
+                document.getElementById('t1-zoom-val').textContent = state.t1.zoomMs + " ms";
+            });
+
+            /* ------------------------------------------------------------- */
+            /* EVENTI TAB 2: AMPIEZZA E LOUDNESS */
+            /* ------------------------------------------------------------- */
+            const t2AmpSlider = document.getElementById('t2-amp');
+            const t2WaveSelect = document.getElementById('t2-wave-type');
+
+            function updateT2Amp(val) {
+                state.t2.gain = val;
+                document.getElementById('t2-amp-val').textContent = val.toFixed(2);
+
+                // Calcolo dBFS
+                const dbfs = val > 0 ? (20 * Math.log10(val)) : -60;
+                const dbText = dbfs <= -60 ? "-∞ dBFS" : dbfs.toFixed(2) + " dBFS";
+                document.getElementById('t2-db-val').textContent = dbText;
+
+                // Clipping alert badge (sopra 0.98)
+                const clipBadge = document.getElementById('t2-clip-badge');
+                if (val >= 0.98) clipBadge.classList.remove('hidden');
+                else clipBadge.classList.add('hidden');
+
+                if (t2Gain) t2Gain.gain.setValueAtTime(val, audioCtx.currentTime);
+            }
+
+            t2AmpSlider.addEventListener('input', (e) => updateT2Amp(parseFloat(e.target.value)));
+            t2WaveSelect.addEventListener('change', (e) => {
+                state.t2.waveType = e.target.value;
+                if (t2Osc) t2Osc.type = e.target.value;
+            });
+
+            // Generazione segmenti VU-Meter verticali (20 bar)
+            const vuContainer = document.getElementById('vu-segments-container');
+            if (vuContainer) {
+                for (let i = 0; i < 20; i++) {
+                    const seg = document.createElement('div');
+                    seg.className = "w-full flex-1 rounded-[1px] bg-gray-800 transition-colors duration-75";
+                    seg.id = `vu-seg-${i}`;
+                    vuContainer.appendChild(seg);
+                }
+            }
+
+            /* ------------------------------------------------------------- */
+            /* EVENTI TAB 3: FASE E INTERFERENZA */
+            /* ------------------------------------------------------------- */
+            const t3PhaseSlider = document.getElementById('t3-phase');
+
+            function updateT3Phase(deg) {
+                state.t3.phaseDeg = deg;
+                document.getElementById('t3-phase-deg-val').textContent = deg + "°";
+                t3PhaseSlider.value = deg;
+
+                // Aggiorna Ritardo Audio (Phase delay)
+                if (t3DelayB) {
+                    const delayTime = (deg / 360.0) * (1.0 / 440.0);
+                    t3DelayB.delayTime.setValueAtTime(delayTime, audioCtx.currentTime);
+                }
+
+                // Calcola e aggiorna lo stato dell'interferenza
+                const statusBox = document.getElementById('t3-status-box');
+                const statusText = document.getElementById('t3-status-text');
+                const sumAmpLabel = document.getElementById('t3-sum-amplitude-label');
+
+                const rad = deg * (Math.PI / 180);
+                // Ampiezza risultante della somma di due seni ad uguale ampiezza A=1: R = 2 * cos(rad / 2)
+                const sumAmp = Math.abs(2 * Math.cos(rad / 2));
+                sumAmpLabel.textContent = "Ampiezza Risultante = " + sumAmp.toFixed(2);
+
+                if (deg === 180) {
+                    statusBox.className = "p-4 rounded-xl border border-red-500/50 bg-red-500/10 text-center space-y-1 glow-magenta";
+                    statusText.textContent = "CONTROFASE / CANCELLAZIONE TOTALE (0 Volts)";
+                    statusText.className = "text-base font-extrabold text-red-400";
+                } else if (deg === 0 || deg === 360) {
+                    statusBox.className = "p-4 rounded-xl border border-daw-accentCyan/50 bg-daw-accentCyan/10 text-center space-y-1 glow-cyan";
+                    statusText.textContent = "INTERFERENZA COSTRUTTIVA PURA (+6 dB)";
+                    statusText.className = "text-base font-extrabold text-daw-accentCyan";
+                } else {
+                    statusBox.className = "p-4 rounded-xl border border-daw-accentYellow/30 bg-daw-bg text-center space-y-1";
+                    statusText.textContent = "INTERFERENZA PARZIALE (Somma Vettoriale)";
+                    statusText.className = "text-base font-extrabold text-daw-accentYellow";
+                }
+            }
+
+            t3PhaseSlider.addEventListener('input', (e) => updateT3Phase(parseFloat(e.target.value)));
+
+            document.querySelectorAll('.t3-preset-phase').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.t3-preset-phase').forEach(b => b.classList.remove('bg-daw-accentMagenta/20', 'text-daw-accentMagenta', 'border-daw-accentMagenta'));
+                    btn.classList.add('bg-daw-accentMagenta/20', 'text-daw-accentMagenta', 'border-daw-accentMagenta');
+                    updateT3Phase(parseFloat(btn.getAttribute('data-phase')));
+                });
+            });
+
+            // Selettore d'Ascolto Audio per Tab 3
+            document.querySelectorAll('.t3-audio-mode').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.t3-audio-mode').forEach(b => b.classList.remove('active', 'border-daw-accentCyan', 'border-daw-accentMagenta', 'border-daw-accentYellow', 'text-daw-accentYellow', 'font-bold'));
+                    btn.classList.add('active', 'font-bold');
+
+                    if (btn.id === 'btn-listen-a') {
+                        state.t3.audioMode = 'a';
+                        btn.classList.add('border-daw-accentCyan', 'text-daw-accentCyan');
+                    } else if (btn.id === 'btn-listen-b') {
+                        state.t3.audioMode = 'b';
+                        btn.classList.add('border-daw-accentMagenta', 'text-daw-accentMagenta');
+                    } else {
+                        state.t3.audioMode = 'sum';
+                        btn.classList.add('border-daw-accentYellow', 'text-daw-accentYellow');
+                    }
+
+                    if (t3GainA && t3GainB) {
+                        t3GainA.gain.setValueAtTime((state.t3.audioMode==='a'||state.t3.audioMode==='sum')?0.4:0, audioCtx.currentTime);
+                        t3GainB.gain.setValueAtTime((state.t3.audioMode==='b'||state.t3.audioMode==='sum')?0.4:0, audioCtx.currentTime);
+                    }
+                });
+            });
+
+            /* ------------------------------------------------------------- */
+            /* EVENTI TAB 4: TIMBRO E SPETTRO ARMONICO */
+            /* ------------------------------------------------------------- */
+            const t4F1Num = document.getElementById('t4-f1-num');
+            if (t4F1Num) {
+                t4F1Num.addEventListener('change', (e) => {
+                    const f1 = Math.max(50, Math.min(600, parseFloat(e.target.value)));
+                    state.t4.f1 = f1;
+                    if (t4Oscs.length > 0) {
+                        t4Oscs.forEach((osc, idx) => {
+                            osc.frequency.setValueAtTime(f1 * (idx + 1), audioCtx.currentTime);
+                        });
+                    }
+                });
+            }
+
+            // Aggiorna lo slider di un'armonica specifica
+            window.updateHarmonicGain = function(index, amp) {
+                state.t4.harmonics[index] = amp;
+                const valSpan = document.getElementById(`t4-h${index+1}-val`);
+                if (valSpan) valSpan.textContent = amp.toFixed(2);
+
+                if (t4Gains[index]) {
+                    t4Gains[index].gain.setValueAtTime(amp * 0.25, audioCtx.currentTime);
+                }
+            };
+
+            // Delega eventi per i 8 slider dinamici delle armoniche
+            document.getElementById('harmonics-container').addEventListener('input', (e) => {
+                if (e.target && e.target.id.startsWith('t4-h')) {
+                    const hIndex = parseInt(e.target.id.replace('t4-h', '')) - 1;
+                    const val = parseFloat(e.target.value);
+                    updateHarmonicGain(hIndex, val);
+                }
+            });
+
+            // Presets Timbrici Didattici
+            document.querySelectorAll('.t4-preset-wave').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const preset = btn.getAttribute('data-preset');
+                    let newH = [0,0,0,0,0,0,0,0];
+
+                    if (preset === 'sine') {
+                        newH[0] = 1.0;
+                    } else if (preset === 'square') {
+                        // Solo armoniche dispari: 1, 1/3, 1/5, 1/7
+                        newH[0] = 1.0; newH[2] = 1/3; newH[4] = 1/5; newH[6] = 1/7;
+                    } else if (preset === 'saw') {
+                        // Tutte le armoniche: 1/n
+                        for(let i=0; i<8; i++) newH[i] = 1.0 / (i + 1);
+                    } else if (preset === 'triangle') {
+                        // Solo dispari decrescenti velocemente: 1/n^2
+                        newH[0] = 1.0; newH[2] = 1/9; newH[4] = 1/25; newH[6] = 1/49;
+                    }
+
+                    for(let i=0; i<8; i++) {
+                        const slider = document.getElementById(`t4-h${i+1}`);
+                        if (slider) slider.value = newH[i];
+                        updateHarmonicGain(i, newH[i]);
+                    }
+                });
+            });
+
+            /* ------------------------------------------------------------- */
+            /* EVENTI TAB 5: QUIZ & CHALLENGE MODE */
+            /* ------------------------------------------------------------- */
+            const btnModeFreq = document.getElementById('btn-mode-freq');
+            const btnModeWave = document.getElementById('btn-mode-wave');
+            const panelFreq = document.getElementById('quiz-panel-freq');
+            const panelWave = document.getElementById('quiz-panel-wave');
+
+            btnModeFreq.addEventListener('click', () => {
+                state.t5.mode = 'freq';
+                btnModeFreq.className = "quiz-mode-select w-full py-3 px-4 bg-daw-bg border border-purple-500/40 text-purple-300 font-semibold rounded-xl transition text-left flex items-center justify-between text-sm";
+                btnModeWave.className = "quiz-mode-select w-full py-3 px-4 bg-daw-bg border border-daw-border text-gray-400 font-semibold rounded-xl hover:bg-daw-hover transition text-left flex items-center justify-between text-sm";
+                panelFreq.classList.remove('hidden');
+                panelWave.classList.add('hidden');
+                resetQuizRound();
+            });
+
+            btnModeWave.addEventListener('click', () => {
+                state.t5.mode = 'wave';
+                btnModeWave.className = "quiz-mode-select w-full py-3 px-4 bg-daw-bg border border-purple-500/40 text-purple-300 font-semibold rounded-xl transition text-left flex items-center justify-between text-sm";
+                btnModeFreq.className = "quiz-mode-select w-full py-3 px-4 bg-daw-bg border border-daw-border text-gray-400 font-semibold rounded-xl hover:bg-daw-hover transition text-left flex items-center justify-between text-sm";
+                panelWave.classList.remove('hidden');
+                panelFreq.classList.add('hidden');
+                resetQuizRound();
+            });
+
+            const quizSlider = document.getElementById('quiz-freq-guess');
+            const quizNum = document.getElementById('quiz-freq-guess-num');
+
+            quizSlider.addEventListener('input', (e) => quizNum.value = e.target.value);
+            quizNum.addEventListener('change', (e) => quizSlider.value = e.target.value);
+
+            // Generazione nuovo target casuale
+            function resetQuizRound() {
+                state.t5.answered = false;
+                document.getElementById('quiz-feedback').classList.add('hidden');
+
+                if (state.t5.mode === 'freq') {
+                    // Frequenza casuale tra 120 e 880 Hz (arrotondata a 10 Hz)
+                    state.t5.targetFreq = Math.floor(Math.random() * 76 + 12) * 10;
+                    document.getElementById('btn-quiz-submit-freq').classList.remove('hidden');
+                    document.getElementById('btn-quiz-next-freq').classList.add('hidden');
+                } else {
+                    const waves = ['sine', 'square', 'sawtooth', 'triangle'];
+                    state.t5.targetWave = waves[Math.floor(Math.random() * waves.length)];
+                }
+            }
+
+            document.getElementById('btn-quiz-play-freq').addEventListener('click', () => {
+                playQuizSound(state.t5.targetFreq, 'sine');
+            });
+
+            document.getElementById('btn-quiz-play-wave').addEventListener('click', () => {
+                playQuizSound(440, state.t5.targetWave);
+            });
+
+            // Verifica Risposta Frequenza
+            document.getElementById('btn-quiz-submit-freq').addEventListener('click', () => {
+                if (state.t5.answered) return;
+                state.t5.answered = true;
+
+                const guess = parseFloat(quizNum.value);
+                const target = state.t5.targetFreq;
+                const errorPercent = Math.abs(guess - target) / target * 100;
+
+                const feedback = document.getElementById('quiz-feedback');
+                const feedbackIcon = document.getElementById('quiz-feedback-icon');
+                const feedbackText = document.getElementById('quiz-feedback-text');
+
+                feedback.classList.remove('hidden');
+
+                if (errorPercent <= 5) {
+                    // Ottimo!
+                    state.t5.score += 100;
+                    state.t5.streak += 1;
+                    feedback.className = "p-4 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold flex items-center gap-3 mt-4";
+                    feedbackIcon.className = "fa-solid fa-circle-check text-2xl text-emerald-400";
+                    feedbackText.innerHTML = `Eccellente! Frequenza esatta: <strong>${target} Hz</strong> (Scarto del ${errorPercent.toFixed(1)}%). +100 Punti!`;
+                } else if (errorPercent <= 15) {
+                    // Buona stima
+                    state.t5.score += 50;
+                    feedback.className = "p-4 rounded-xl border border-yellow-500/50 bg-yellow-500/10 text-yellow-300 font-semibold flex items-center gap-3 mt-4";
+                    feedbackIcon.className = "fa-solid fa-triangle-exclamation text-2xl text-yellow-400";
+                    feedbackText.innerHTML = `Molto vicino! La frequenza era <strong>${target} Hz</strong> (Scarto del ${errorPercent.toFixed(1)}%). +50 Punti!`;
+                } else {
+                    // Errore
+                    state.t5.streak = 0;
+                    feedback.className = "p-4 rounded-xl border border-red-500/50 bg-red-500/10 text-red-300 font-semibold flex items-center gap-3 mt-4";
+                    feedbackIcon.className = "fa-solid fa-circle-xmark text-2xl text-red-400";
+                    feedbackText.innerHTML = `Sbagliato! La frequenza corretta era <strong>${target} Hz</strong>. Riprova nel prossimo turno.`;
+                }
+
+                document.getElementById('quiz-score').textContent = state.t5.score;
+                document.getElementById('quiz-streak').textContent = `Serie Risposte Corrette: ${state.t5.streak} 🔥`;
+
+                document.getElementById('btn-quiz-submit-freq').classList.add('hidden');
+                document.getElementById('btn-quiz-next-freq').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-quiz-next-freq').addEventListener('click', () => {
+                resetQuizRound();
+            });
+
+            // Scelta Risposta Forma d'Onda
+            document.querySelectorAll('.quiz-wave-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (state.t5.answered) return;
+                    state.t5.answered = true;
+
+                    const chosen = btn.getAttribute('data-wave');
+                    const target = state.t5.targetWave;
+
+                    const feedback = document.getElementById('quiz-feedback');
+                    const feedbackIcon = document.getElementById('quiz-feedback-icon');
+                    const feedbackText = document.getElementById('quiz-feedback-text');
+
+                    feedback.classList.remove('hidden');
+
+                    if (chosen === target) {
+                        state.t5.score += 100;
+                        state.t5.streak += 1;
+                        feedback.className = "p-4 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold flex items-center gap-3 mt-4";
+                        feedbackIcon.className = "fa-solid fa-circle-check text-2xl text-emerald-400";
+                        feedbackText.innerHTML = `Corretto! Forma d'onda identificata: <strong>${target.toUpperCase()}</strong>. +100 Punti!`;
+                    } else {
+                        state.t5.streak = 0;
+                        feedback.className = "p-4 rounded-xl border border-red-500/50 bg-red-500/10 text-red-300 font-semibold flex items-center gap-3 mt-4";
+                        feedbackIcon.className = "fa-solid fa-circle-xmark text-2xl text-red-400";
+                        feedbackText.innerHTML = `Sbagliato! La forma d'onda era <strong>${target.toUpperCase()}</strong>.`;
+                    }
+
+                    document.getElementById('quiz-score').textContent = state.t5.score;
+                    document.getElementById('quiz-streak').textContent = `Serie Risposte Corrette: ${state.t5.streak} 🔥`;
+
+                    setTimeout(() => resetQuizRound(), 2500);
+                });
+            });
+
+            document.getElementById('btn-reset-quiz').addEventListener('click', () => {
+                state.t5.score = 0;
+                state.t5.streak = 0;
+                document.getElementById('quiz-score').textContent = "0";
+                document.getElementById('quiz-streak').textContent = "Serie Risposte Corrette: 0 🔥";
+                resetQuizRound();
+            });
+
+            // Inizializza primo round quiz
+            resetQuizRound();
+        });
+
+
+        /* ================================================================= */
+        /* RENDERING MOTORE CANVAS A 60 FPS (REQUESTANIMATIONFRAME) */
+        /* ================================================================= */
+
+        // Helper per ridimensionamento Canvas High-DPI (Retina Display)
+        function setupCanvasDPI(canvas) {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+            }
+            const ctx = canvas.getContext('2d');
+            ctx.resetTransform();
+            ctx.scale(dpr, dpr);
+            return { ctx, width: rect.width, height: rect.height };
+        }
+
+        // Loop grafico principale
+        function renderLoop() {
+            requestAnimationFrame(renderLoop);
+
+            if (state.activeTab === 'tab-frequenza') {
+                renderTab1Canvas();
+            } else if (state.activeTab === 'tab-ampiezza') {
+                renderTab2Canvas();
+            } else if (state.activeTab === 'tab-fase') {
+                renderTab3Canvases();
+            } else if (state.activeTab === 'tab-timbro') {
+                renderTab4Canvases();
+            }
+        }
+
+        /* ------------------------------------------------------------- */
+        /* CANVAS TAB 1: OSCILLOSCOPIO CON MISURA DEL PERIODO T */
+        /* ------------------------------------------------------------- */
+        function renderTab1Canvas() {
+            const canvas = document.getElementById('canvas-t1');
+            if (!canvas) return;
+            const { ctx, width, height } = setupCanvasDPI(canvas);
+
+            // Sfondo Dark Grid
+            ctx.fillStyle = '#0b0d14';
+            ctx.fillRect(0, 0, width, height);
+
+            // Disegna Griglia dell'Oscilloscopio
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            const gridSpacing = 30;
+            for (let x = 0; x < width; x += gridSpacing) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSpacing) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            // Asse Zero centrale
+            const centerY = height / 2;
+            ctx.strokeStyle = '#334155';
+            ctx.beginPath(); ctx.moveTo(0, centerY); ctx.lineTo(width, centerY); ctx.stroke();
+
+            // Parametri segnale matematico simulato/real-time per stabilità visiva
+            const freq = state.t1.freq;
+            const zoomMs = state.t1.zoomMs;
+            const amplitude = height * 0.35;
+
+            // Disegna Forma d'Onda Sinusoidale (Neon Cyan)
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 8;
+
+            ctx.beginPath();
+            const totalSec = zoomMs / 1000;
+            for (let x = 0; x < width; x++) {
+                const t = (x / width) * totalSec;
+                const y = centerY - amplitude * Math.sin(2 * Math.PI * freq * t);
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset ombra
+
+            // MISURA VISIVA DINAMICA DEL PERIODO T (Tra due creste adiacenti)
+            const periodSec = 1 / freq;
+            const xPeak1_sec = periodSec * 0.25; // Prima cresta a sin(pi/2)
+            const xPeak2_sec = xPeak1_sec + periodSec; // Seconda cresta
+
+            const xPeak1_px = (xPeak1_sec / totalSec) * width;
+            const xPeak2_px = (xPeak2_sec / totalSec) * width;
+            const peakY = centerY - amplitude;
+
+            // Se entrambe le creste cadono all'interno del viewport visibile
+            if (xPeak1_px < width && xPeak2_px > 0) {
+                ctx.strokeStyle = '#ffd700'; // Giallo Neon
+                ctx.fillStyle = '#ffd700';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]);
+
+                // Linee guida verticali dalle creste
+                ctx.beginPath(); ctx.moveTo(xPeak1_px, peakY); ctx.lineTo(xPeak1_px, peakY - 25); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(xPeak2_px, peakY); ctx.lineTo(xPeak2_px, peakY - 25); ctx.stroke();
+                ctx.setLineDash([]); // Reset dashed
+
+                // Freccia trasversale di misura T
+                const arrowY = peakY - 20;
+                ctx.beginPath(); ctx.moveTo(xPeak1_px, arrowY); ctx.lineTo(xPeak2_px, arrowY); ctx.stroke();
+
+                // Punte delle frecce
+                ctx.beginPath();
+                ctx.arc(xPeak1_px, arrowY, 3, 0, Math.PI * 2);
+                ctx.arc(xPeak2_px, arrowY, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Etichetta Periodo T
+                const periodMs = (1000 / freq).toFixed(2);
+                ctx.font = 'bold 12px "JetBrains Mono", monospace';
+                ctx.fillStyle = '#ffd700';
+                ctx.textAlign = 'center';
+                const textX = (xPeak1_px + xPeak2_px) / 2;
+                ctx.fillText(`T = ${periodMs} ms`, textX, arrowY - 8);
+            }
+        }
+
+        /* ------------------------------------------------------------- */
+        /* CANVAS TAB 2: OSCILLOSCOPIO CON PEAK LEVEL ED EVIDENZIAZIONE */
+        /* ------------------------------------------------------------- */
+        function renderTab2Canvas() {
+            const canvas = document.getElementById('canvas-t2');
+            if (!canvas) return;
+            const { ctx, width, height } = setupCanvasDPI(canvas);
+
+            ctx.fillStyle = '#0b0d14';
+            ctx.fillRect(0, 0, width, height);
+
+            const centerY = height / 2;
+            const gain = state.t2.gain;
+            const maxAmp = height * 0.4;
+            const currentAmp = maxAmp * gain;
+
+            // Disegna Fasce di Picco Massimo A (+A e -A)
+            ctx.strokeStyle = gain >= 0.98 ? '#ef4444' : '#00ff66';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+
+            // Positività e Negatività di Picco
+            ctx.beginPath(); ctx.moveTo(0, centerY - currentAmp); ctx.lineTo(width, centerY - currentAmp); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, centerY + currentAmp); ctx.lineTo(width, centerY + currentAmp); ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Etichetta valore di Picco
+            ctx.font = '11px "JetBrains Mono", monospace';
+            ctx.fillStyle = gain >= 0.98 ? '#ef4444' : '#00ff66';
+            ctx.textAlign = 'right';
+            ctx.fillText(`+A (${gain.toFixed(2)})`, width - 10, centerY - currentAmp - 5);
+            ctx.fillText(`-A (-${gain.toFixed(2)})`, width - 10, centerY + currentAmp + 15);
+
+            // Asse Zero centrale
+            ctx.strokeStyle = '#334155';
+            ctx.beginPath(); ctx.moveTo(0, centerY); ctx.lineTo(width, centerY); ctx.stroke();
+
+            // Disegna Forma d'Onda Real-Time tramite buffer Analyser o Equazione Equivalente
+            ctx.strokeStyle = gain >= 0.98 ? '#ef4444' : '#00ff66';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = gain >= 0.98 ? '#ef4444' : '#00ff66';
+            ctx.shadowBlur = 6;
+
+            ctx.beginPath();
+            const cycles = 4;
+            for (let x = 0; x < width; x++) {
+                const phase = (x / width) * cycles * 2 * Math.PI;
+                let sample = 0;
+                const wave = state.t2.waveType;
+
+                if (wave === 'sine') sample = Math.sin(phase);
+                else if (wave === 'triangle') sample = (2 / Math.PI) * Math.asin(Math.sin(phase));
+                else if (wave === 'sawtooth') sample = -2 / Math.PI * Math.atan(1 / Math.tan(phase / 2));
+                else if (wave === 'square') sample = Math.sin(phase) >= 0 ? 1 : -1;
+
+                const y = centerY - currentAmp * sample;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // AGGIORNAMENTO DINAMICO SEGMENTI VU-METER
+            const dbfs = gain > 0 ? (20 * Math.log10(gain)) : -60;
+            // Mappiamo -48dB -> 0 segmenti, 0dB -> 20 segmenti
+            const activeSegs = Math.max(0, Math.min(20, Math.round(((dbfs + 48) / 48) * 20)));
+
+            for (let i = 0; i < 20; i++) {
+                const seg = document.getElementById(`vu-seg-${i}`);
+                if (!seg) continue;
+                if (i < activeSegs) {
+                    if (i < 14) seg.style.backgroundColor = '#00ff66'; // Verde
+                    else if (i < 18) seg.style.backgroundColor = '#ffd700'; // Giallo
+                    else seg.style.backgroundColor = '#ef4444'; // Rosso Clip
+                } else {
+                    seg.style.backgroundColor = '#1f2937'; // Inattivo
+                }
+            }
+            document.getElementById('vu-numeric').textContent = dbfs <= -60 ? "-∞ dB" : dbfs.toFixed(1) + " dB";
+        }
+
+        /* ------------------------------------------------------------- */
+        /* CANVAS TAB 3: SOVRAPPOSIZIONE ONDE A/B ED ONDA RISULTANTE */
+        /* ------------------------------------------------------------- */
+        function renderTab3Canvases() {
+            // Grafico 1: Sovrapposizione Onde A e B
+            const canvasComp = document.getElementById('canvas-t3-components');
+            if (canvasComp) {
+                const { ctx, width, height } = setupCanvasDPI(canvasComp);
+                ctx.fillStyle = '#0b0d14'; ctx.fillRect(0, 0, width, height);
+
+                const centerY = height / 2;
+                const amp = height * 0.35;
+                const phaseRad = state.t3.phaseDeg * (Math.PI / 180);
+
+                // Onda A (Ciano)
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let x = 0; x < width; x++) {
+                    const t = (x / width) * 4 * Math.PI;
+                    const y = centerY - amp * Math.sin(t);
+                    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+
+                // Onda B (Magenta sfasata)
+                ctx.strokeStyle = '#ff0055';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let x = 0; x < width; x++) {
+                    const t = (x / width) * 4 * Math.PI;
+                    const y = centerY - amp * Math.sin(t + phaseRad);
+                    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+
+            // Grafico 2: Somma Risultante (A + B)
+            const canvasSum = document.getElementById('canvas-t3-sum');
+            if (canvasSum) {
+                const { ctx, width, height } = setupCanvasDPI(canvasSum);
+                ctx.fillStyle = '#0b0d14'; ctx.fillRect(0, 0, width, height);
+
+                const centerY = height / 2;
+                const baseAmp = height * 0.2; // 0.2 per dare spazio al raddoppio (+6dB)
+                const phaseRad = state.t3.phaseDeg * (Math.PI / 180);
+
+                // Asse Zero
+                ctx.strokeStyle = '#334155'; ctx.beginPath(); ctx.moveTo(0, centerY); ctx.lineTo(width, centerY); ctx.stroke();
+
+                // Onda Somma (Gialla Neon)
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#ffd700';
+                ctx.shadowBlur = 8;
+
+                ctx.beginPath();
+                for (let x = 0; x < width; x++) {
+                    const t = (x / width) * 4 * Math.PI;
+                    const sampleA = Math.sin(t);
+                    const sampleB = Math.sin(t + phaseRad);
+                    const sumSample = sampleA + sampleB;
+
+                    const y = centerY - baseAmp * sumSample;
+                    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        /* ------------------------------------------------------------- */
+        /* CANVAS TAB 4: DOMINIO TEMPO (OSCILLOSCOPIO) & FREQUENZA (FFT) */
+        /* ------------------------------------------------------------- */
+        function renderTab4Canvases() {
+            // Display Tempo: Forma d'onda composita
+            const canvasTime = document.getElementById('canvas-t4-time');
+            if (canvasTime) {
+                const { ctx, width, height } = setupCanvasDPI(canvasTime);
+                ctx.fillStyle = '#0b0d14'; ctx.fillRect(0, 0, width, height);
+
+                const centerY = height / 2;
+                const ampScale = height * 0.35;
+                const harmonics = state.t4.harmonics;
+
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = '#00f0ff';
+                ctx.shadowBlur = 6;
+
+                ctx.beginPath();
+                for (let x = 0; x < width; x++) {
+                    const t = (x / width) * 4 * Math.PI;
+                    let sum = 0;
+                    for (let n = 0; n < 8; n++) {
+                        sum += (harmonics[n] || 0) * Math.sin((n + 1) * t);
+                    }
+                    // Normalizziamo indicativamente per visualizzazione
+                    const y = centerY - (ampScale * 0.4) * sum;
+                    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Display Frequenza: Grafico a Barre FFT per le 8 Armoniche
+            const canvasFreq = document.getElementById('canvas-t4-freq');
+            if (canvasFreq) {
+                const { ctx, width, height } = setupCanvasDPI(canvasFreq);
+                ctx.fillStyle = '#0b0d14'; ctx.fillRect(0, 0, width, height);
+
+                const padding = 20;
+                const barWidth = (width - padding * 2) / 8 - 8;
+                const harmonics = state.t4.harmonics;
+
+                for (let i = 0; i < 8; i++) {
+                    const amp = harmonics[i] || 0;
+                    const barHeight = (height - 40) * amp;
+                    const x = padding + i * (barWidth + 8);
+                    const y = height - 25 - barHeight;
+
+                    // Gradient per Barra Armonica
+                    const grad = ctx.createLinearGradient(0, height - 25, 0, y);
+                    grad.addColorStop(0, '#ffd700');
+                    grad.addColorStop(1, '#00f0ff');
+
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(x, y, barWidth, barHeight);
+
+                    // Etichetta Armonica inferiore (f1, f2...)
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = '10px "JetBrains Mono", monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${i+1}f`, x + barWidth / 2, height - 10);
+                }
+            }
+        }
+
+        // Avvio del loop di rendering all'allineamento della finestra
+        window.onload = function() {
+            renderLoop();
+        };
+
+    </script>
+</body>
+</html>
